@@ -1,12 +1,14 @@
 import shutil
+import sys
 from pathlib import Path
 
 from convert import markdown_to_html_node
 
 
 def main():
+    basepath = sys.argv[1] if len(sys.argv) > 1 else "/"
     src = Path("static")
-    dest = Path("public")
+    dest = Path("docs")
     content_dir = Path("content")
     template_path = Path("template.html")
 
@@ -15,14 +17,7 @@ def main():
 
     copy_static_to_public(src, dest)
 
-    for md_path in content_dir.rglob("*.md"):
-        rel_path = md_path.relative_to(content_dir)
-        html_path = dest / rel_path.with_suffix(".html")
-        generate_page(
-            from_path=md_path,
-            template_path=template_path,
-            dest_path=html_path,
-        )
+    generate_pages_recursive(content_dir, dest, template_path, basepath)
 
 
 def copy_static_to_public(src_dir, dest_dir):
@@ -47,7 +42,19 @@ def extract_title(markdown):
     raise Exception("No h1 title found")
 
 
-def generate_page(from_path, template_path, dest_path):
+def generate_pages_recursive(content_dir, dest_dir, template_path, basepath):
+    for md_path in content_dir.rglob("*.md"):
+        rel_path = md_path.relative_to(content_dir)
+        html_path = dest_dir / rel_path.with_suffix(".html")
+        generate_page(
+            from_path=md_path,
+            template_path=template_path,
+            dest_path=html_path,
+            basepath=basepath,
+        )
+
+
+def generate_page(from_path, template_path, dest_path, basepath):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
 
     with open(from_path, "r", encoding="utf-8") as file:
@@ -61,6 +68,9 @@ def generate_page(from_path, template_path, dest_path):
     page_content = template_content.replace("{{ Title }}", title).replace(
         "{{ Content }}", html_content
     )
+
+    page_content = page_content.replace('href="/', f'href="{basepath}')
+    page_content = page_content.replace('src="/', f'src="{basepath}')
 
     dest_path.parent.mkdir(parents=True, exist_ok=True)
 
